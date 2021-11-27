@@ -211,6 +211,47 @@ __liballocs_private_assert (_Bool cond, const char *reason,
 #endif
 }
 
+int __liballocs_get_source_coords(const void *instr,
+const char **out_filename, unsigned *out_line)
+{
+	//todo
+	struct big_allocation *b;
+	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
+	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
+	FILE *fp=NULL; 
+    char buff[128]={0};   
+    memset(buff,0,sizeof(buff)); 
+    char x[128] = {0};
+    sprintf(x, "addr2line -e %s %s\n", file_name, instr);
+    printf("%s", x);
+    fp=popen(x,"r");
+    fread(buff,1,127,fp);
+    size_t i = 0;
+    for (; i < 127; i++)
+    {
+        if(buff[i] == ':') 
+        {
+            break;
+        }
+       /* code */
+    }
+    char fileName[128];
+    memcpy(out_filename, buff, i);
+    char line_num[128];
+    size_t num_index = 0;
+    i++;
+    while (buff[i] != '\00')
+    {
+        line_num[num_index++] = buff[i++];
+    }
+    *out_line = atoi(line_num);
+
+    // printf("%s\n", out_filename);
+    // printf("%d\n", out_line);
+    pclose(fp);   
+    return 0;
+}
+
 extern inline void 
 __attribute__((always_inline,gnu_inline))
 __liballocs_ensure_init(void)
