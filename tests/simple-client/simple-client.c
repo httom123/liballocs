@@ -8,23 +8,11 @@ extern __thread void *__current_allocsite __attribute__((weak));
 
 int main(void)
 {
-	void *handle = dlopen(NULL, RTLD_NOW);
-	printf("Handle is %p\n", handle);
-	assert(handle);
-
-	struct allocator *a;
-	const void *alloc_start;
-	unsigned long alloc_size;
-	const void *alloc_uniqtype;
-	const void *alloc_site;
-	struct liballocs_err *err = __liballocs_get_alloc_info(handle, 
-        &a, &alloc_start, &alloc_size, &alloc_uniqtype, &alloc_site);
-
-	printf("Saw allocator %p, start %p, size %ul, uniqtype %p, alloc site %p\n",
-		a, alloc_start, alloc_size, alloc_uniqtype, alloc_site);
-
-	/* Check that referencing built-in uniqtypes works. */
-	printf("__uniqtype__void is at %p\n", &__uniqtype__void);
+	char file_name[128];
+    unsigned *line_num = malloc(sizeof (unsigned int));
+    __liballocs_get_source_coords(main, file_name, line_num);
+	printf("file name is %s", file_name);
+	printf("line number is %d ", line_num);
 
 	return 0;
 }

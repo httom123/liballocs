@@ -211,6 +211,17 @@ __liballocs_private_assert (_Bool cond, const char *reason,
 #endif
 }
 
+
+#define MAPPING_SEQUENCE_MAX_LEN 8
+struct mapping_sequence
+{
+	void *begin;
+	void *end;
+	const char *filename;
+	unsigned nused;
+	struct mapping_entry mappings[MAPPING_SEQUENCE_MAX_LEN];
+};
+
 int __liballocs_get_source_coords(const void *instr,
 const char **out_filename, unsigned *out_line)
 {
