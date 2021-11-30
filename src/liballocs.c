@@ -1584,7 +1584,7 @@ int __liballocs_add_type_to_block(void *block, struct uniqtype *t)
 }
 
 
-int /(const void *instr,
+int (const void *instr,
 const char **out_filename, unsigned *out_line)
 {
 	//todo
