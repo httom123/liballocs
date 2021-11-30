@@ -1591,8 +1591,6 @@ const char **out_filename, unsigned *out_line)
 	struct big_allocation *b;
 	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
 	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
-	Dl_info info = dladdr_with_cache(main);
-	printf("Our binary is: %s, loaded at %p\n", info.dli_fname, info.dli_fbase);
 	FILE *fp=NULL; 
     char buff[128]={0};   
     memset(buff,0,sizeof(buff)); 
