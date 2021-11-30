@@ -1588,7 +1588,6 @@ int __liballocs_get_source_coords(const void *instr,
 const char **out_filename, unsigned *out_line)
 {
 	//todo
-	*((struct r_debug *)&_r_debug).r_map
 	struct big_allocation *b;
 	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
 	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
