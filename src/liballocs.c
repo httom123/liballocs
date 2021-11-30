@@ -1584,7 +1584,7 @@ int __liballocs_add_type_to_block(void *block, struct uniqtype *t)
 }
 
 
-int __liballocs_get_source_coords(const void *instr,
+int /(const void *instr,
 const char **out_filename, unsigned *out_line)
 {
 	//todo
@@ -1595,7 +1595,7 @@ const char **out_filename, unsigned *out_line)
     char buff[128]={0};   
     memset(buff,0,sizeof(buff)); 
     char x[128] = {0};
-    sprintf(x, "addr2line -e %s %s\n", file_name, instr);
+    sprintf(x, "addr2line -e %s %p\n", file_name, instr);
     printf("%s", x);
     fp=popen(x,"r");
     fread(buff,1,127,fp);
