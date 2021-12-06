@@ -13,6 +13,7 @@
 *.o.fixuplog
 *.swp
 
+
 /tests/alloca/alloca
 /tests/offsetof/offsetof
 /tests/section-group/section-group
@@ -173,4 +174,4 @@ tmp-*.txt
 config.h.in
 contrib/config.mk
 contrib/env.sh
-
+contrib/*
