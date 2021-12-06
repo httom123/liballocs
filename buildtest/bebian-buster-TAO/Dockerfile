@@ -23,11 +23,10 @@ RUN sudo apt install libdw-dev
 RUN cd /usr/local/src && git clone https://github.com/httom123/liballocs.git
 RUN cd /usr/local/src/liballocs && \
    git submodule update --init --recursive && \
-   make -C contrib -j4
+   make -C contrib -j6
 RUN cd /usr/local/src/liballocs && \
    ./autogen.sh && \
-   (. contrib/env.sh && ./configure --prefix=/usr/local) && \
-   make -j4
+   (. contrib/env.sh && ./configure --prefix=/usr/local) 
 RUN sudo mkdir -p /usr/lib/meta && sudo chown root:user /usr/lib/meta && \
    sudo chmod g+w /usr/lib/meta
 RUN cd /usr/local/src/liballocs && \
