@@ -19,6 +19,7 @@ RUN sudo apt-get install -y git build-essential libelf-dev libdw-dev binutils-de
        libboost-iostreams-dev libboost-regex-dev libboost-serialization-dev libboost-filesystem-dev
 RUN sudo apt-get install -y vim
 ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
+RUN sudo apt install libdw-dev
 RUN cd /usr/local/src && git clone https://github.com/httom123/liballocs.git
 RUN cd /usr/local/src/liballocs && \
    git submodule update --init --recursive && \
