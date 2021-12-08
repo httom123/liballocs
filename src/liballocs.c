@@ -1585,69 +1585,6 @@ int __liballocs_add_type_to_block(void *block, struct uniqtype *t)
 	return 0;
 }
 
-int __liballocs_get_source_coords(const void *instr,
-const char **out_filename, unsigned *out_line)
-{
-	//todo do a code improvement.
-	struct big_allocation *b;
-	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
-	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
-	FILE *f = fopen(file_name, "r"); // C-style file I/O
-	if (!f) { err(1, "opening own executable file"); }
-	Dwarf *d;
-	d = dwarf_begin(fileno(f), DWARF_C_READ);
-	assert(d);
-	// loop over compilation units
-	struct Dwarf_CU *cur_cu = NULL;
-	Dwarf_Die cudie = { 0 };
-	Dwarf_Die subdie = { 0 };
-	Dwarf_Half version;
-	uint8_t unit_type;
-	int ret = 0;
-	while (0 == (ret = dwarf_get_units(d, cur_cu, &cur_cu, &version,
-		&unit_type, &cudie, &subdie)))
-	{
-		/* We have the CU DIE. What is its offset? */
-		Dwarf_Off cu_off = dwarf_dieoffset(&cudie);
-		debug_print("Saw a CU at 0x%lx!\n", (unsigned long) cu_off);
-		Dwarf_Off abbrev_offset;
-		uint8_t address_size;
-		uint8_t offset_size;
-		Dwarf_Off type_offset;
-		uint64_t type_signature;
-		Dwarf_Die tmp;
-		if (NULL == dwarf_cu_die(cur_cu,
-				&tmp, // we've already got the DIE
-				&version, // we've already got the version too
-				&abbrev_offset,
-				&address_size,
-				&offset_size,
-				&type_signature,
-				&type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
-		assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
-		size_t address;
-		sscanf(argv[2], "%lx", &address);
-		/* Easiest way to depthfirst-traverse? Use recursion. */
-		do_visit(d, &cudie, address, *out_filename, out_line);
-	}
-	dwarf_end(d);
-	return 1;
-}
-
-static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr *addr, char *file_name, size_t out_line)
-{
-	Dwarf_Lines *lineptrs = NULL;
-	size_t line_size = -1;
-	int ret = dwarf_getsrclines(pos, &lineptrs, &line_size);
-
-
-	get_file_name_by_line(lineptrs, &file_name);
-
-
-	get_lineno_by_addr(lineptrs, addr, line_size, &out_line);
-
-	printf("%s : %d \n", file_name, out_line);
-}
 
 static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr *addr, size_t line_num, size_t *result)
 {
@@ -1667,7 +1604,6 @@ static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr *addr, size_t line_
 	printf("current line is %d and the result is %lx\n", __LINE__, last_addr);
 
 	if(addr > last_addr || addr < star_addr) {
-		printf("current line is %d", __LINE__);
 		return -1;
 	}
 	//use binary search to optimise todo
@@ -1679,10 +1615,7 @@ static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr *addr, size_t line_
 		dwarf_lineaddr(end_line, &last_addr);
 
 		if(addr >= star_addr && addr < last_addr) {
-			printf("current line is %d \n", __LINE__);
-			printf("corrsepdonding line is %d\n", i-1);
 			dwarf_lineno(start_line, result);
-			printf("current line is %d\n", *result);
 			return 1;
 		}
 	}
@@ -1702,6 +1635,72 @@ static void get_file_name_by_line(Dwarf_Lines *lines, char** file_name) {
 
 	*file_name = dwarf_filesrc(file, file_index, mtime, length);
 }
+
+static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr *addr, char **file_name, size_t *out_line)
+{
+	Dwarf_Lines *lineptrs = NULL;
+	size_t line_size = -1;
+	int ret = dwarf_getsrclines(pos, &lineptrs, &line_size);
+
+
+	get_file_name_by_line(lineptrs, file_name);
+
+
+	get_lineno_by_addr(lineptrs, addr, line_size, out_line);
+
+	printf("this result is in do_visit method----> %s : %d \n", file_name, out_line);
+}
+
+int __liballocs_get_source_coords(const void *instr,
+const char **out_filename, unsigned *out_line)
+{
+	//todo do a code improvement.
+	struct big_allocation *b;
+	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
+	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
+	FILE *f = fopen(file_name, "r"); // C-style file I/O
+	if (!f) { err(1, "opening own executable file"); }
+	Dl_info info = dladdr_with_cache(instr);
+	Dwarf *d;
+	d = dwarf_begin(fileno(f), DWARF_C_READ);
+	assert(d);
+	// loop over compilation units
+	struct Dwarf_CU *cur_cu = NULL;
+	Dwarf_Die cudie = { 0 };
+	Dwarf_Die subdie = { 0 };
+	Dwarf_Half version;
+	uint8_t unit_type;
+	int ret = 0;
+	while (0 == (ret = dwarf_get_units(d, cur_cu, &cur_cu, &version,
+		&unit_type, &cudie, &subdie)))
+	{
+		/* We have the CU DIE. What is its offset? */
+		Dwarf_Off cu_off = dwarf_dieoffset(&cudie);
+		// debug_print("Saw a CU at 0x%lx!\n", (unsigned long) cu_off);
+		Dwarf_Off abbrev_offset;
+		uint8_t address_size;
+		uint8_t offset_size;
+		Dwarf_Off type_offset;
+		uint64_t type_signature;
+		Dwarf_Die tmp;
+		if (NULL == dwarf_cu_die(cur_cu,
+				&tmp, // we've already got the DIE
+				&version, // we've already got the version too
+				&abbrev_offset,
+				&address_size,
+				&offset_size,
+				&type_signature,
+				&type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
+		assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
+		/* Easiest way to depthfirst-traverse? Use recursion. */
+		do_visit(d, &cudie, (instr - info.dli_fbase), out_filename, out_line);
+	}
+	dwarf_end(d);
+	return 1;
+}
+
+
+
 
 // int __liballocs_get_source_coords_popen_version(const void *instr,
 // const char **out_filename, unsigned *out_line)
