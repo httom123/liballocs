@@ -11,7 +11,7 @@ CFLAGS += -std=gnu11 -fPIC -Wall -g -I../include -I$(SRCROOT)/include -I$(LIBMAL
 ifeq ($(DEBUG),)
 CFLAGS += -flto -ffat-lto-objects
 endif
-LDFLAGS += -L$(LIBDLBIND)/lib
+LDFLAGS += -L$(LIBDLBIND)/lib -L/usr/lib/x86_64-linux-gnu
 
 # run-from-srcdir case:
 # if the current dir is the source dir, change to the output directory
@@ -139,7 +139,7 @@ CFLAGS += -DTRACE_HEAP_INDEX
 #CFLAGS += -DTRACE_MALLOC_HOOKS
 #CFLAGS += -DTRACE_DEEP_HEAP_INDEX
 endif
-CFLAGS += -I$(srcdir)
+CFLAGS += -I$(srcdir) -I/usr/include/elfutils
 
 # different outputs involve different subgroups of objects
 UTIL_OBJS := cache.o allocsites.o pageindex.o addrlist.o uniqtype-bfs.o
