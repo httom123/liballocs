@@ -1585,12 +1585,15 @@ int __liballocs_add_type_to_block(void *block, struct uniqtype *t)
 	return 0;
 }
 
-
-static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr *addr, size_t line_num, size_t *result)
+/*
+Use Dwarf_Lines and line number to get the top and bottom address, and use given address to get the corresponding line number of this address.
+*/
+static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr addr, size_t line_num)
 {
+	int result = -1;
 	//todo change the input parameter
-	Dwarf_Lines *start_line = NULL;
-	Dwarf_Lines *end_line = NULL;
+	Dwarf_Line *start_line = NULL;
+	Dwarf_Line *end_line = NULL;
 
 	Dwarf_Addr star_addr;
 	Dwarf_Addr last_addr;
@@ -1600,10 +1603,10 @@ static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr *addr, size_t line_
 
 	dwarf_lineaddr(start_line, &star_addr);
 	dwarf_lineaddr(end_line, &last_addr);
-	printf("current line is %d and the result is %lx\n", __LINE__, star_addr);
-	printf("current line is %d and the result is %lx\n", __LINE__, last_addr);
 
+	printf("addr is %lu, last is %lu, start is %lu", addr, last_addr, star_addr);
 	if(addr > last_addr || addr < star_addr) {
+		printf("current line is %d", __LINE__);
 		return -1;
 	}
 	//use binary search to optimise todo
@@ -1615,49 +1618,63 @@ static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr *addr, size_t line_
 		dwarf_lineaddr(end_line, &last_addr);
 
 		if(addr >= star_addr && addr < last_addr) {
-			dwarf_lineno(start_line, result);
-			return 1;
+			dwarf_lineno(start_line, &result);
+			printf("this is get_line function, the corresponding line is -> %d\n", result);
+			return result;
 		}
 	}
 	printf("current line is %d", __LINE__);
-	return -1;
+	return result;
 }
 
-static void get_file_name_by_line(Dwarf_Lines *lines, char** file_name) {
-	Dwarf_Lines *start_line = NULL;
+/*
+Return the file name of given Dwarf_Lines
+*/
+static const char *get_file_name_by_line(Dwarf_Lines *lines) {
+	Dwarf_Line *start_line = NULL;
 	start_line = dwarf_onesrcline(lines, 0);
 	Dwarf_Files* file;
 	size_t file_index;
 	dwarf_line_file(start_line, &file, &file_index);
 	Dwarf_Word *mtime = NULL;
 	Dwarf_Word *length = NULL;
-	printf("%d current line is %d\n", file_index, 	__LINE__);
+	printf("%lu current line is %d\n", file_index, 	__LINE__);
 
-	*file_name = dwarf_filesrc(file, file_index, mtime, length);
+	return dwarf_filesrc(file, file_index, mtime, length);
 }
 
-static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr *addr, char **file_name, size_t *out_line)
+/*
+This function will use Dwarf and Dwarf_die and given addr to get the address location, and write into the pointer of file_name and out_line.
+*/
+static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char **file_name, unsigned *out_line)
 {
 	Dwarf_Lines *lineptrs = NULL;
 	size_t line_size = -1;
 	int ret = dwarf_getsrclines(pos, &lineptrs, &line_size);
 
+	*file_name = get_file_name_by_line(lineptrs);
 
-	get_file_name_by_line(lineptrs, file_name);
+	printf("this is line %d, the given file name is %s \n",__LINE__, *file_name);
+	// *out_line = 5;
+	*out_line = get_lineno_by_addr(lineptrs, addr, line_size);
 
-
-	get_lineno_by_addr(lineptrs, addr, line_size, out_line);
-
-	printf("this result is in do_visit method----> %s : %d \n", file_name, out_line);
+	printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
 }
 
+/**
+ * @brief this function will directly use Libdw to get dwarf message to get the file name and line number by given address.
+ * @param instr The pointer/address
+ * @param out_filename a char* / string pointer, will write the corresponding file name into this pointer.
+ * @param out_line a unsigned int pointer, will write the corresponding line number  into this pointer.
+ * @return int return 1 if success
+ */
 int __liballocs_get_source_coords(const void *instr,
 const char **out_filename, unsigned *out_line)
 {
 	//todo do a code improvement.
 	struct big_allocation *b;
 	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
-	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
+	const char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
 	FILE *f = fopen(file_name, "r"); // C-style file I/O
 	if (!f) { err(1, "opening own executable file"); }
 	Dl_info info = dladdr_with_cache(instr);
@@ -1693,7 +1710,7 @@ const char **out_filename, unsigned *out_line)
 				&type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
 		assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
 		/* Easiest way to depthfirst-traverse? Use recursion. */
-		do_visit(d, &cudie, (instr - info.dli_fbase), out_filename, out_line);
+		do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line);
 	}
 	dwarf_end(d);
 	return 1;
