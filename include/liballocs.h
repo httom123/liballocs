@@ -215,6 +215,9 @@ __liballocs_private_assert (_Bool cond, const char *reason,
 int __liballocs_get_source_coords(const void *instr,
 const char **out_filename, unsigned *out_line);//todo
 
+int __liballocs_get_source_coords_popen_version(const void *instr,
+const char **out_filename, unsigned *out_line); //todo use this function to do the test.
+
 extern inline void 
 __attribute__((always_inline,gnu_inline))
 __liballocs_ensure_init(void)

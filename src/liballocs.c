@@ -1604,9 +1604,9 @@ static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr addr, size_t line_n
 	dwarf_lineaddr(start_line, &star_addr);
 	dwarf_lineaddr(end_line, &last_addr);
 
-	printf("addr is %lu, last is %lu, start is %lu", addr, last_addr, star_addr);
+	// printf("addr is %lu, last is %lu, start is %lu", addr, last_addr, star_addr);
 	if(addr > last_addr || addr < star_addr) {
-		printf("current line is %d", __LINE__);
+		// printf("current line is %d", __LINE__);
 		return -1;
 	}
 	//use binary search to optimise todo
@@ -1619,11 +1619,12 @@ static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr addr, size_t line_n
 
 		if(addr >= star_addr && addr < last_addr) {
 			dwarf_lineno(start_line, &result);
-			printf("this is get_line function, the corresponding line is -> %d\n", result);
+			// printf("this is get_line function, the corresponding line is -> %d\n", result);
+			// printf("this is get_line function, the corresponding line for address is -> %lx\n", result);
 			return result;
 		}
 	}
-	printf("current line is %d", __LINE__);
+	// printf("current line is %d", __LINE__);
 	return result;
 }
 
@@ -1638,7 +1639,7 @@ static const char *get_file_name_by_line(Dwarf_Lines *lines) {
 	dwarf_line_file(start_line, &file, &file_index);
 	Dwarf_Word *mtime = NULL;
 	Dwarf_Word *length = NULL;
-	printf("%lu current line is %d\n", file_index, 	__LINE__);
+	// printf("%lu current line is %d\n", file_index, 	__LINE__);
 
 	return dwarf_filesrc(file, file_index, mtime, length);
 }
@@ -1654,11 +1655,11 @@ static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *
 
 	*file_name = get_file_name_by_line(lineptrs);
 
-	printf("this is line %d, the given file name is %s \n",__LINE__, *file_name);
+	// printf("this is line %d, the given file name is %s \n",__LINE__, *file_name);
 	// *out_line = 5;
 	*out_line = get_lineno_by_addr(lineptrs, addr, line_size);
 
-	printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
+	// printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
 }
 
 /**
@@ -1719,47 +1720,47 @@ const char **out_filename, unsigned *out_line)
 
 
 
-// int __liballocs_get_source_coords_popen_version(const void *instr,
-// const char **out_filename, unsigned *out_line)
-// {
-// 	//todo
-// 	struct big_allocation *b;
-// 	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
-// 	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
-// 	Dl_info info = dladdr_with_cache(instr);
-// 	FILE *fp=NULL; 
-//     char buff[128]={0};   
-//     memset(buff,0,sizeof(buff)); 
-//     char x[128] = {0};
-//     sprintf(x, "addr2line -e %s %p\n", file_name, (instr - info.dli_fbase));
-//     printf("%s", x);
-//     fp=popen(x,"r");
-//     fread(buff,1,127,fp);
-//     size_t i = 0;
-//     for (; i < 127; i++)
-//     {
-//         if(buff[i] == ':') 
-//         {
-//             break;
-//         }
-//        /* code */
-//     }
-//     char fileName[128];
-//     memcpy(out_filename, buff, i);
-//     char line_num[128];
-//     size_t num_index = 0;
-//     i++;
-//     while (buff[i] != '\00')
-//     {
-//         line_num[num_index++] = buff[i++];
-//     }
-//     *out_line = atoi(line_num);
+int __liballocs_get_source_coords_popen_version(const void *instr,
+const char **out_filename, unsigned *out_line)
+{
+	//todo
+	struct big_allocation *b;
+	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
+	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
+	Dl_info info = dladdr_with_cache(instr);
+	FILE *fp=NULL; 
+    char buff[128]={0};   
+    memset(buff,0,sizeof(buff)); 
+    char x[128] = {0};
+    sprintf(x, "addr2line -e %s %p\n", file_name, (instr - info.dli_fbase));
+    // printf("%s", x);
+    fp=popen(x,"r");
+    fread(buff,1,127,fp);
+    size_t i = 0;
+    for (; i < 127; i++)
+    {
+        if(buff[i] == ':') 
+        {
+            break;
+        }
+       /* code */
+    }
+    char fileName[128];
+    memcpy(out_filename, buff, i);
+    char line_num[128];
+    size_t num_index = 0;
+    i++;
+    while (buff[i] != '\00')
+    {
+        line_num[num_index++] = buff[i++];
+    }
+    *out_line = atoi(line_num);
 
-//     // printf("%s\n", out_filename);
-//     // printf("%d\n", out_line);
-//     pclose(fp);   
-//     return 0;
-// }
+    // printf("%s\n", out_filename);
+    // printf("%d\n", out_line);
+    pclose(fp);   
+    return 0;
+}
 
 static int walk_child_bigallocs(struct alloc_containment_ctxt *cont,
 	walk_alloc_cb_t *cb, void *arg);
