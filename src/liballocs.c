@@ -1646,7 +1646,7 @@ static const char *get_file_name_by_line(Dwarf_Lines *lines) {
 
 static int print_inline(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr)
 {
-	char* src = NULL;
+	const char* src = NULL;
 	int line_no = 0;
 	Dwarf_Die *scopes =  NULL;
 	int nscopes = dwarf_getscopes(pos, addr, &scopes);
@@ -1774,7 +1774,7 @@ const char **out_filename, unsigned *out_line)
 
 
 int __liballocs_get_source_coords_popen_version(const void *instr,
-char *out_filename, unsigned out_len, unsigned *out_len)
+char *out_filename, unsigned out_len, unsigned *out_line)
 {
 	//todo
 	struct big_allocation *b;
@@ -1799,7 +1799,7 @@ char *out_filename, unsigned out_len, unsigned *out_len)
     }
 	unsigned file_name_length = i < out_len? i:out_len;
 	strncpy(out_filename, buff, file_name_length);
-	*out_line = atoi(&buff[i+1])
+	*out_line = atoi(&buff[i+1]);
     pclose(fp);   
     return 0;
 }

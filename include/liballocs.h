@@ -213,10 +213,10 @@ __liballocs_private_assert (_Bool cond, const char *reason,
 
 
 int __liballocs_get_source_coords(const void *instr,
-const char **out_filename, unsigned *out_line);//todo
+const char **out_filename, unsigned *out_line);
 
 int __liballocs_get_source_coords_popen_version(const void *instr,
-const char **out_filename, unsigned *out_line); //todo use this function to do the test.
+char *out_filename, unsigned out_len, unsigned *out_line);
 
 extern inline void 
 __attribute__((always_inline,gnu_inline))
@@ -853,3 +853,4 @@ int __liballocs_add_type_to_block(void *block, struct uniqtype *t);
 #endif
 
 #endif
+endif
