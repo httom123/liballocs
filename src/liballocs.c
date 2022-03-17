@@ -1644,6 +1644,59 @@ static const char *get_file_name_by_line(Dwarf_Lines *lines) {
 	return dwarf_filesrc(file, file_index, mtime, length);
 }
 
+static int print_inline(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr)
+{
+	char* src = NULL;
+	int line_no = 0;
+	Dwarf_Die *scopes =  NULL;
+	int nscopes = dwarf_getscopes(pos, addr, &scopes);
+
+	if(nscopes < 0)
+	{
+		return -1;
+	}
+
+	if(nscopes > 0)
+	{
+		Dwarf_Die subroutine;
+		Dwarf_Off dieoff = dwarf_dieoffset (&scopes[0]);
+		dwarf_offdie(debug, dieoff, &subroutine);
+		free(scopes);
+
+		scopes = NULL;
+		nscopes = dwarf_getscopes_die (&subroutine, &scopes);
+		if (nscopes > 1)
+	    {
+	      Dwarf_Die cu;
+	      Dwarf_Files *files;
+	      if (dwarf_diecu (&scopes[0], &cu, NULL, NULL) != NULL
+		  && dwarf_getsrcfiles (pos, &files, NULL) == 0)
+		{
+		  for (int i = 0; i < nscopes - 1; i++)
+		    {
+		      Dwarf_Word val;
+		      Dwarf_Attribute attr;
+		      Dwarf_Die *die = &scopes[i];
+		      if (dwarf_tag (die) != DW_TAG_inlined_subroutine)
+			  {
+				  continue;
+			  }
+
+			  if (dwarf_formudata (dwarf_attr (die, DW_AT_call_file,
+						       &attr), &val) == 0)
+			src = dwarf_filesrc (files, val, NULL, NULL);
+
+		      if (dwarf_formudata (dwarf_attr (die, DW_AT_call_line,
+						       &attr), &val) == 0)
+			line_no = val;
+
+			printf("the lineno is  %d, file src is %s", line_no, src);
+			}
+		}
+		}
+	}
+}
+
 /*
 This function will use Dwarf and Dwarf_die and given addr to get the address location, and write into the pointer of file_name and out_line.
 */
@@ -1658,6 +1711,7 @@ static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *
 
 	*out_line = get_lineno_by_addr(lineptrs, addr, line_size);
 
+	//print_inline(debug, pos, addr)
 	// printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
 }
 
