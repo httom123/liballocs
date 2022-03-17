@@ -18,11 +18,11 @@ RUN sudo apt-get install -y git build-essential libelf-dev libdw-dev binutils-de
        libunwind-dev libc6-dev-i386 zlib1g-dev libc6-dbg \
        libboost-iostreams-dev libboost-regex-dev libboost-serialization-dev libboost-filesystem-dev
 RUN sudo apt-get install -y vim && sudo apt-get install -y dwarfdump
+ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 RUN cd /usr/local/src && git clone https://github.com/httom123/liballocs.git
 RUN cd /usr/local/src/liballocs && \
    git submodule update --init --recursive && \
    make -C contrib -j4
-ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 RUN cd /usr/local/src/liballocs && \
    ./autogen.sh && \
    (. contrib/env.sh && ./configure --prefix=/usr/local) &&\

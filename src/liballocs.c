@@ -1649,14 +1649,13 @@ This function will use Dwarf and Dwarf_die and given addr to get the address loc
 */
 static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char **file_name, unsigned *out_line)
 {
+	//todo do scope check use addr and PC address
 	Dwarf_Lines *lineptrs = NULL;
 	size_t line_size = -1;
 	int ret = dwarf_getsrclines(pos, &lineptrs, &line_size);
 
 	*file_name = get_file_name_by_line(lineptrs);
 
-	// printf("this is line %d, the given file name is %s \n",__LINE__, *file_name);
-	// *out_line = 5;
 	*out_line = get_lineno_by_addr(lineptrs, addr, line_size);
 
 	// printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
@@ -1721,7 +1720,7 @@ const char **out_filename, unsigned *out_line)
 
 
 int __liballocs_get_source_coords_popen_version(const void *instr,
-const char **out_filename, unsigned *out_line)
+char *out_filename, unsigned out_len, unsigned *out_len)
 {
 	//todo
 	struct big_allocation *b;
@@ -1733,7 +1732,6 @@ const char **out_filename, unsigned *out_line)
     memset(buff,0,sizeof(buff)); 
     char x[128] = {0};
     sprintf(x, "addr2line -e %s %p\n", file_name, (instr - info.dli_fbase));
-    // printf("%s", x);
     fp=popen(x,"r");
     fread(buff,1,127,fp);
     size_t i = 0;
@@ -1745,19 +1743,9 @@ const char **out_filename, unsigned *out_line)
         }
        /* code */
     }
-    char fileName[128];
-    memcpy(out_filename, buff, i);
-    char line_num[128];
-    size_t num_index = 0;
-    i++;
-    while (buff[i] != '\00')
-    {
-        line_num[num_index++] = buff[i++];
-    }
-    *out_line = atoi(line_num);
-
-    // printf("%s\n", out_filename);
-    // printf("%d\n", out_line);
+	unsigned file_name_length = i < out_len? i:out_len;
+	strncpy(out_filename, buff, file_name_length);
+	*out_line = atoi(&buff[i+1])
     pclose(fp);   
     return 0;
 }
