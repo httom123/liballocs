@@ -1649,7 +1649,8 @@ static int get_inline_info(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const 
 	int res = 0;
 	Dwarf_Die *scopes =  NULL;
 	int nscopes = dwarf_getscopes(pos, addr, &scopes);
-
+	const char* src = NULL;
+	unsigned line_no;
 	if(nscopes < 0)
 	{
 		return 0;
