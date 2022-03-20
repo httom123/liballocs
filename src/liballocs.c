@@ -1644,16 +1644,15 @@ static const char *get_file_name_by_line(Dwarf_Lines *lines) {
 	return dwarf_filesrc(file, file_index, mtime, length);
 }
 
-static int print_inline(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr)
+static int get_inline_info(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char ***file_name, unsigned **out_line)
 {
-	const char* src = NULL;
-	int line_no = 0;
+	int res = 0;
 	Dwarf_Die *scopes =  NULL;
 	int nscopes = dwarf_getscopes(pos, addr, &scopes);
 
 	if(nscopes < 0)
 	{
-		return -1;
+		return 0;
 	}
 
 	if(nscopes > 0)
@@ -1689,28 +1688,38 @@ static int print_inline(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr)
 		      if (dwarf_formudata (dwarf_attr (die, DW_AT_call_line,
 						       &attr), &val) == 0)
 			line_no = val;
+			res+=1;
 
+			*file_name[i+1] = src;
+			*out_line[i+1] = line_no;
 			printf("the lineno is  %d, file src is %s", line_no, src);
 			}
 		}
 		}
 	}
+	free(scopes);
+	return res;
+	
 }
 
 /*
 This function will use Dwarf and Dwarf_die and given addr to get the address location, and write into the pointer of file_name and out_line.
 */
-static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char **file_name, unsigned *out_line)
+static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char ***file_name, unsigned **out_line, int *size)
 {
-	//todo do scope check use addr and PC address
+	if(dwarf_haspc(pos, addr) != 1)
+	{
+		return;
+	}
 	Dwarf_Lines *lineptrs = NULL;
 	size_t line_size = -1;
 	int ret = dwarf_getsrclines(pos, &lineptrs, &line_size);
 
-	*file_name = get_file_name_by_line(lineptrs);
+	(*file_name)[0] = get_file_name_by_line(lineptrs);
 
-	*out_line = get_lineno_by_addr(lineptrs, addr, line_size);
+	(*out_line)[0] = get_lineno_by_addr(lineptrs, addr, line_size);
 
+	*size = get_inline_info(debug, pos, addr, file_name, out_line);
 	//print_inline(debug, pos, addr)
 	// printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
 }
@@ -1722,8 +1731,9 @@ static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *
  * @param out_line a unsigned int pointer, will write the corresponding line number  into this pointer.
  * @return int return 1 if success
  */
+
 int __liballocs_get_source_coords(const void *instr,
-const char **out_filename, unsigned *out_line)
+const char ***out_filename, unsigned **out_line, int *size)
 {
 	//todo do a code improvement.
 	struct big_allocation *b;
@@ -1764,7 +1774,7 @@ const char **out_filename, unsigned *out_line)
 				&type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
 		assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
 		/* Easiest way to depthfirst-traverse? Use recursion. */
-		do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line);
+		do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line, size);
 	}
 	dwarf_end(d);
 	return 1;

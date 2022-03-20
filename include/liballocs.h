@@ -213,7 +213,7 @@ __liballocs_private_assert (_Bool cond, const char *reason,
 
 
 int __liballocs_get_source_coords(const void *instr,
-const char **out_filename, unsigned *out_line);//todo
+const char ***out_filename, unsigned **out_line, int source_size);//todo
 
 int __liballocs_get_source_coords_popen_version(const void *instr,
 char *out_filename, unsigned out_len, unsigned *out_line);
