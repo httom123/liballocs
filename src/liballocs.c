@@ -1734,7 +1734,7 @@ static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *
  */
 
 int __liballocs_get_source_coords(const void *instr,
-const char ***out_filename, unsigned **out_line, int *size)
+const char ***out_filename, unsigned **out_line, int *source_size)
 {
 	//todo do a code improvement.
 	struct big_allocation *b;
@@ -1775,7 +1775,7 @@ const char ***out_filename, unsigned **out_line, int *size)
 				&type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
 		assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
 		/* Easiest way to depthfirst-traverse? Use recursion. */
-		do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line, size);
+		do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line, source_size);
 	}
 	dwarf_end(d);
 	return 1;
