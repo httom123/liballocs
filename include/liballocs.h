@@ -216,7 +216,7 @@ int __liballocs_get_source_coords(const void *instr,
 const char *out_filename[], unsigned out_line[], int *source_size);
 
 int __liballocs_get_source_coords_popen_version(const void *instr,
-char *out_filename, unsigned out_len, unsigned *out_line);
+char *out_filename[], unsigned out_line[], int *source_size);
 
 int __liballocs_get_source_coords_test(const void *instr, const char* file_name,
 const char *out_filename[], unsigned out_line[], int *source_size);
