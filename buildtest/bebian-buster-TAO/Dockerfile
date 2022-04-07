@@ -27,8 +27,6 @@ RUN cd /usr/local/src/liballocs && \
    ./autogen.sh && \
    (. contrib/env.sh && ./configure --prefix=/usr/local) && \
    make -j4
-#copy modified files to target dir
-COPY --chown=user:user liballocs/src /usr/local/src/liballocs/src
 #recompile
 RUN cd /usr/local/src/liballocs && \
    make -j4
