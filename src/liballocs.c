@@ -1585,144 +1585,124 @@ int __liballocs_add_type_to_block(void *block, struct uniqtype *t)
 	return 0;
 }
 
-/*
-Use Dwarf_Lines and line number to get the top and bottom address, and use given address to get the corresponding line number of this address.
-*/
-static int get_lineno_by_addr(Dwarf_Lines *lines, Dwarf_Addr addr, size_t line_num)
+
+static Dwarf_Line* get_line_by_addr(Dwarf_Lines *lines, Dwarf_Addr addr, size_t line_num)
 {
-	int result = -1;
-	//todo change the input parameter
-	Dwarf_Line *start_line = NULL;
-	Dwarf_Line *end_line = NULL;
+    int result = -1;
 
-	Dwarf_Addr star_addr;
-	Dwarf_Addr last_addr;
+    Dwarf_Addr addr1, addr2;
+    size_t left = 0, right = line_num - 1;
+    size_t index = 0;
+    while(left != right)
+    {
+            size_t medium = (left + right)/2;
+            index++;
+            dwarf_lineaddr(dwarf_onesrcline(lines, medium), &addr1);
+            dwarf_lineaddr(dwarf_onesrcline(lines, medium+1), &addr2);
 
-	start_line = dwarf_onesrcline(lines, 0);
-	end_line = dwarf_onesrcline(lines, line_num - 1);
-
-	dwarf_lineaddr(start_line, &star_addr);
-	dwarf_lineaddr(end_line, &last_addr);
-
-	// printf("addr is %lu, last is %lu, start is %lu", addr, last_addr, star_addr);
-	if(addr > last_addr || addr < star_addr) {
-		// printf("current line is %d", __LINE__);
-		return -1;
-	}
-	//use binary search to optimise todo
-	for (size_t i = 1; i < line_num; i++)
-	{
-		start_line = dwarf_onesrcline(lines, i-1);
-		end_line = dwarf_onesrcline(lines, i);
-		dwarf_lineaddr(start_line, &star_addr);
-		dwarf_lineaddr(end_line, &last_addr);
-
-		if(addr >= star_addr && addr < last_addr) {
-			dwarf_lineno(start_line, &result);
-			// printf("this is get_line function, the corresponding line is -> %d\n", result);
-			// printf("this is get_line function, the corresponding line for address is -> %lx\n", result);
-			return result;
-		}
-	}
-	// printf("current line is %d", __LINE__);
-	return result;
+            if(addr < addr1)
+            {
+                    right = medium;
+            } else if(addr >= addr2)
+            {
+                    left = medium;
+            } else
+            {
+                    return dwarf_onesrcline(lines, medium);
+            }
+    }
+    return NULL;
 }
 
-/*
-Return the file name of given Dwarf_Lines
-*/
-static const char *get_file_name_by_line(Dwarf_Lines *lines) {
-	Dwarf_Line *start_line = NULL;
-	start_line = dwarf_onesrcline(lines, 0);
-	Dwarf_Files* file;
-	size_t file_index;
-	dwarf_line_file(start_line, &file, &file_index);
-	Dwarf_Word *mtime = NULL;
-	Dwarf_Word *length = NULL;
-	// printf("%lu current line is %d\n", file_index, 	__LINE__);
 
-	return dwarf_filesrc(file, file_index, mtime, length);
-}
-
-static int get_inline_info(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char ***file_name, unsigned **out_line)
+static int get_inline_info(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *out_filename[], unsigned out_line[])
 {
-	int res = 0;
-	Dwarf_Die *scopes =  NULL;
-	int nscopes = dwarf_getscopes(pos, addr, &scopes);
-	const char* src = NULL;
-	unsigned line_no;
-	if(nscopes < 0)
-	{
-		return 0;
-	}
+    int res = 0;
+    Dwarf_Die *scopes =  NULL;
+    int nscopes = dwarf_getscopes(pos, addr, &scopes);
+    const char* src = NULL;
+    unsigned line_no = 0;
+    if(nscopes < 0)
+    {
+            return 0;
+    }
 
-	if(nscopes > 0)
-	{
-		Dwarf_Die subroutine;
-		Dwarf_Off dieoff = dwarf_dieoffset (&scopes[0]);
-		dwarf_offdie(debug, dieoff, &subroutine);
-		free(scopes);
+    if(nscopes > 0)
+    {
+            Dwarf_Die subroutine;
+            Dwarf_Off dieoff = dwarf_dieoffset (&scopes[0]);
+            dwarf_offdie(debug, dieoff, &subroutine);
+            free(scopes);
 
-		scopes = NULL;
-		nscopes = dwarf_getscopes_die (&subroutine, &scopes);
-		if (nscopes > 1)
-	    {
-	      Dwarf_Die cu;
-	      Dwarf_Files *files;
-	      if (dwarf_diecu (&scopes[0], &cu, NULL, NULL) != NULL
-		  && dwarf_getsrcfiles (pos, &files, NULL) == 0)
-		{
-		  for (int i = 0; i < nscopes - 1; i++)
-		    {
-		      Dwarf_Word val;
-		      Dwarf_Attribute attr;
-		      Dwarf_Die *die = &scopes[i];
-		      if (dwarf_tag (die) != DW_TAG_inlined_subroutine)
-			  {
-				  continue;
-			  }
+            scopes = NULL;
+            nscopes = dwarf_getscopes_die (&subroutine, &scopes);
+            if (nscopes > 1)
+            {
+                    Dwarf_Die cu;
+                    Dwarf_Files *files;
+                    if (dwarf_diecu (&scopes[0], &cu, NULL, NULL) != NULL
+                                    && dwarf_getsrcfiles (pos, &files, NULL) == 0)
+                    {
+                            for (int i = 0; i < nscopes - 1; i++)
+                            {
+                                    Dwarf_Word val;
+                                    Dwarf_Attribute attr;
+                                    Dwarf_Die *die = &scopes[i];
+                                    if (dwarf_tag (die) != DW_TAG_inlined_subroutine)
+                                    {
+                                            continue;
+                                    }
 
-			  if (dwarf_formudata (dwarf_attr (die, DW_AT_call_file,
-						       &attr), &val) == 0)
-			src = dwarf_filesrc (files, val, NULL, NULL);
+                              if (dwarf_formudata (dwarf_attr (die, DW_AT_call_file,
+                                                                    &attr), &val) == 0)
+                                            src = dwarf_filesrc (files, val, NULL, NULL);
 
-		      if (dwarf_formudata (dwarf_attr (die, DW_AT_call_line,
-						       &attr), &val) == 0)
-			line_no = val;
-			res+=1;
+                                    if (dwarf_formudata (dwarf_attr (die, DW_AT_call_line,
+                                                                    &attr), &val) == 0)
+                                            line_no = val;
 
-			*file_name[i+1] = src;
-			*out_line[i+1] = line_no;
-			printf("the lineno is  %d, file src is %s", line_no, src);
-			}
-		}
-		}
-	}
-	free(scopes);
-	return res;
-	
+                                    out_filename[res] = src;
+                                    out_line[res] = line_no;
+                                    res+=1;
+                            }
+                    }
+            }
+    }
+    free(scopes);
+    //The number of inline caller
+    return res;
 }
 
 /*
 This function will use Dwarf and Dwarf_die and given addr to get the address location, and write into the pointer of file_name and out_line.
 */
-static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char ***file_name, unsigned **out_line, int *size)
+static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *out_filename[], unsigned out_line[], int *size)
 {
-	if(dwarf_haspc(pos, addr) != 1)
-	{
-		return;
-	}
-	Dwarf_Lines *lineptrs = NULL;
-	size_t line_size = -1;
-	int ret = dwarf_getsrclines(pos, &lineptrs, &line_size);
+    //check if the addr is in the socoupe, if not, cancel the methdo.
+    if(dwarf_haspc(pos, addr) != 1)
+    {
+            return;
+    }
+    Dwarf_Lines *lineptrs = NULL;
+    size_t size1;
 
-	(*file_name)[0] = get_file_name_by_line(lineptrs);
+    dwarf_getsrclines(pos, &lineptrs, &size1);
+    //Get original caller info.
+    //get line info
+    int original_line_num;
+    Dwarf_Line *target_line = get_line_by_addr(lineptrs, addr, size1);
+	dwarf_lineno(target_line, &original_line_num);
 
-	(*out_line)[0] = get_lineno_by_addr(lineptrs, addr, line_size);
+    //get file name info
+    const char* original_file_name = dwarf_linesrc(target_line, NULL, NULL);
 
-	*size = get_inline_info(debug, pos, addr, file_name, out_line);
-	//print_inline(debug, pos, addr)
-	// printf("this result is in do_visit method----> %s : %lu \n", *file_name, *out_line);
+
+    out_filename[0] = original_file_name;
+    out_line[0] = original_line_num;
+
+    //get inline info, and get inline number + 1
+    *size = get_inline_info(debug, pos, addr, &out_filename[1], &out_line[1]) + 1;
+
 }
 
 /**
@@ -1733,87 +1713,190 @@ static void do_visit(Dwarf *debug, Dwarf_Die *pos, Dwarf_Addr addr, const char *
  * @return int return 1 if success
  */
 
+
 int __liballocs_get_source_coords(const void *instr,
-const char ***out_filename, unsigned **out_line, int *source_size)
+                const char *out_filename[], unsigned out_line[], int *source_size)
 {
-	//todo do a code improvement.
-	struct big_allocation *b;
-	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
-	const char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
-	FILE *f = fopen(file_name, "r"); // C-style file I/O
-	if (!f) { err(1, "opening own executable file"); }
-	Dl_info info = dladdr_with_cache(instr);
-	Dwarf *d;
-	d = dwarf_begin(fileno(f), DWARF_C_READ);
-	assert(d);
-	// loop over compilation units
-	struct Dwarf_CU *cur_cu = NULL;
-	Dwarf_Die cudie = { 0 };
-	Dwarf_Die subdie = { 0 };
-	Dwarf_Half version;
-	uint8_t unit_type;
-	int ret = 0;
-	while (0 == (ret = dwarf_get_units(d, cur_cu, &cur_cu, &version,
-		&unit_type, &cudie, &subdie)))
-	{
-		/* We have the CU DIE. What is its offset? */
-		Dwarf_Off cu_off = dwarf_dieoffset(&cudie);
-		// debug_print("Saw a CU at 0x%lx!\n", (unsigned long) cu_off);
-		Dwarf_Off abbrev_offset;
-		uint8_t address_size;
-		uint8_t offset_size;
-		Dwarf_Off type_offset;
-		uint64_t type_signature;
-		Dwarf_Die tmp;
-		if (NULL == dwarf_cu_die(cur_cu,
-				&tmp, // we've already got the DIE
-				&version, // we've already got the version too
-				&abbrev_offset,
-				&address_size,
-				&offset_size,
-				&type_signature,
-				&type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
-		assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
-		/* Easiest way to depthfirst-traverse? Use recursion. */
-		do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line, source_size);
-	}
-	dwarf_end(d);
-	return 1;
+    struct big_allocation *b;
+    struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
+    char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
+    FILE *f = fopen(file_name, "r"); // C-style file I/O
+    if (!f) { err(1, "opening own executable file"); }
+    Dl_info info = dladdr_with_cache(instr);
+    Dwarf *d;
+    d = dwarf_begin(fileno(f), DWARF_C_READ);
+    assert(d);
+    // loop over compilation units
+    struct Dwarf_CU *cur_cu = NULL;
+    Dwarf_Die cudie = { 0 };
+    Dwarf_Die subdie = { 0 };
+    Dwarf_Half version;
+    uint8_t unit_type;
+    int ret = 0;
+    while (0 == (ret = dwarf_get_units(d, cur_cu, &cur_cu, &version,
+                                    &unit_type, &cudie, &subdie)))
+    {
+            /* We have the CU DIE. What is its offset? */
+            Dwarf_Off cu_off = dwarf_dieoffset(&cudie);
+            // debug_print("Saw a CU at 0x%lx!\n", (unsigned long) cu_off);
+            Dwarf_Off abbrev_offset;
+            uint8_t address_size;
+            uint8_t offset_size;
+            Dwarf_Off type_offset;
+      uint64_t type_signature;
+            Dwarf_Die tmp;
+            if (NULL == dwarf_cu_die(cur_cu,
+                                    &tmp, // we've already got the DIE
+                                    &version, // we've already got the version too
+                                    &abbrev_offset,
+                                    &address_size,
+                                    &offset_size,
+                                    &type_signature,
+                                    &type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
+            assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
+            /* Easiest way to depthfirst-traverse? Use recursion. */
+            do_visit(d, &cudie, (Dwarf_Addr)(instr - info.dli_fbase), out_filename, out_line, source_size);
+    }
+    dwarf_end(d);
+    return 1;
 }
-
-
 
 
 int __liballocs_get_source_coords_popen_version(const void *instr,
-char *out_filename, unsigned out_len, unsigned *out_line)
-{
-	//todo
-	struct big_allocation *b;
-	struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
-	char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
-	Dl_info info = dladdr_with_cache(instr);
-	FILE *fp=NULL; 
-    char buff[128]={0};   
-    memset(buff,0,sizeof(buff)); 
-    char x[128] = {0};
-    sprintf(x, "addr2line -e %s %p\n", file_name, (instr - info.dli_fbase));
+    char *out_filename[], unsigned out_line[], int *source_size) {
+    //todo
+    struct big_allocation *b;
+    struct mapping_entry *m = __liballocs_get_memory_mapping(instr, &b);
+    char* file_name = ((struct mapping_sequence *) b->meta.un.opaque_data.data_ptr)->filename;
+    Dl_info info = dladdr_with_cache(instr);
+    FILE *fp=NULL;
+    char buff[1024]={0};
+    memset(buff,0,sizeof(buff));
+    char x[1024] = {0};
+    sprintf(x, "addr2line -i  -e %s %p\n", file_name, instr-info.dli_fbase);
     fp=popen(x,"r");
-    fread(buff,1,127,fp);
-    size_t i = 0;
-    for (; i < 127; i++)
+    fread(buff,1,1025,fp);
+    char *temp[1024];
+
+    char* token;
+
+    token = strtok(buff, "\n");
+    size_t count = 0;
+
+    while (token != NULL)
     {
-        if(buff[i] == ':') 
-        {
-            break;
-        }
-       /* code */
+            temp[count] = token;
+            token = strtok(NULL, "\n");
+            count+=1;
     }
-	unsigned file_name_length = i < out_len? i:out_len;
-	strncpy(out_filename, buff, file_name_length);
-	*out_line = atoi(&buff[i+1]);
-    pclose(fp);   
+	char* temp1;
+    for (size_t i = 0; i < count; i++)
+    {
+            size_t j = 0;
+            temp1 = temp[i];
+            while(temp1[j] != ':')
+            {
+                    j++;
+            }
+            memset(out_filename[i], 0, 1024);
+            strncpy(out_filename[i], temp1, j);
+            *(out_filename[i]+j) = '\00';
+            out_line[i]= atoi(&temp1[j+1]);
+    }
+    *source_size = count;
+
+    pclose(fp);
     return 0;
 }
+
+int __liballocs_get_source_coords_test(const void *instr, const char* file_name,
+                const char *out_filename[], unsigned out_line[], int *source_size)
+{
+    FILE *f = fopen(file_name, "r"); // C-style file I/O
+    if (!f) { err(1, "opening own executable file"); }
+    Dwarf *d;
+    d = dwarf_begin(fileno(f), DWARF_C_READ);
+    assert(d);
+    // loop over compilation units
+    struct Dwarf_CU *cur_cu = NULL;
+    Dwarf_Die cudie = { 0 };
+    Dwarf_Die subdie = { 0 };
+    Dwarf_Half version;
+    uint8_t unit_type;
+    int ret = 0;
+    while (0 == (ret = dwarf_get_units(d, cur_cu, &cur_cu, &version,
+                                    &unit_type, &cudie, &subdie)))
+    {
+            /* We have the CU DIE. What is its offset? */
+            Dwarf_Off cu_off = dwarf_dieoffset(&cudie);
+            // debug_print("Saw a CU at 0x%lx!\n", (unsigned long) cu_off);
+            Dwarf_Off abbrev_offset;
+            uint8_t address_size;
+            uint8_t offset_size;
+            Dwarf_Off type_offset;
+      uint64_t type_signature;
+            Dwarf_Die tmp;
+            if (NULL == dwarf_cu_die(cur_cu,
+                                    &tmp, // we've already got the DIE
+                                    &version, // we've already got the version too
+                                    &abbrev_offset,
+                                    &address_size,
+                                    &offset_size,
+                                    &type_signature,
+                                    &type_offset)) { err(EXIT_FAILURE, "getting CU info"); }
+            assert(0 == memcmp(&tmp, &cudie, sizeof tmp));
+            /* Easiest way to depthfirst-traverse? Use recursion. */
+            do_visit(d, &cudie, (Dwarf_Addr)instr, out_filename, out_line, source_size);
+    }
+    dwarf_end(d);
+    return 1;
+}
+
+
+int __liballocs_get_source_coords_popen_version_test(const void *instr, const char* file_name,
+    char *out_filename[], unsigned out_line[], int *source_size) {
+    FILE *fp=NULL;
+    char buff[1024]={0};
+    memset(buff,0,sizeof(buff));
+    char x[1024] = {0};
+    sprintf(x, "addr2line -i  -e %s %p\n", file_name, instr);
+    fp=popen(x,"r");
+    fread(buff,1,1025,fp);
+    char *temp[1024];
+
+    char* token;
+
+    token = strtok(buff, "\n");
+    size_t count = 0;
+
+    while (token != NULL)
+    {
+            temp[count] = token;
+            token = strtok(NULL, "\n");
+            count+=1;
+    }
+	char* temp1;
+    for (size_t i = 0; i < count; i++)
+    {
+            size_t j = 0;
+            temp1 = temp[i];
+            while(temp1[j] != ':')
+            {
+                    j++;
+            }
+            memset(out_filename[i], 0, 1024);
+            strncpy(out_filename[i], temp1, j);
+            *(out_filename[i]+j) = '\00';
+            out_line[i]= atoi(&temp1[j+1]);
+            //free(temp1);
+    }
+    *source_size = count;
+
+    pclose(fp);
+    return 0;
+}
+
+
 
 static int walk_child_bigallocs(struct alloc_containment_ctxt *cont,
 	walk_alloc_cb_t *cb, void *arg);

@@ -17,7 +17,7 @@ RUN sudo apt-get install -y git build-essential libelf-dev libdw-dev binutils-de
        make git gawk gdb wget \
        libunwind-dev libc6-dev-i386 zlib1g-dev libc6-dbg \
        libboost-iostreams-dev libboost-regex-dev libboost-serialization-dev libboost-filesystem-dev
-RUN sudo apt-get install -y vim && sudo apt-get install -y dwarfdump
+RUN sudo apt-get install -y vim
 ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 RUN cd /usr/local/src && git clone https://github.com/httom123/liballocs.git
 RUN cd /usr/local/src/liballocs && \
@@ -25,9 +25,15 @@ RUN cd /usr/local/src/liballocs && \
    make -C contrib -j4
 RUN cd /usr/local/src/liballocs && \
    ./autogen.sh && \
-   (. contrib/env.sh && ./configure --prefix=/usr/local) &&\
+   (. contrib/env.sh && ./configure --prefix=/usr/local) && \
+   make -j4
+#copy modified files to target dir
+COPY --chown=user:user liballocs/src /usr/local/src/liballocs/src
+#recompile
+RUN cd /usr/local/src/liballocs && \
    make -j4
 RUN sudo mkdir -p /usr/lib/meta && sudo chown root:user /usr/lib/meta && \
    sudo chmod g+w /usr/lib/meta
 RUN cd /usr/local/src/liballocs && \
    make -f tools/Makefile.meta /usr/lib/meta/lib/x86_64-linux-gnu/libc-2.28.so-meta.so
+
